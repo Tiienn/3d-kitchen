@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Build output
+web/dist/
+.vercel/
+
+# OS
+.DS_Store
+
+# QA / scratch renders (hero + key previews are kept)
+renders/verify_*.png
+renders/*crop*.png
+renders/preview_work.png
