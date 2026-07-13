@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { FINISH_SLOTS } from "../config/finishes";
 import { useConfigurator, type CameraPresetId } from "../store/useConfigurator";
 
@@ -13,6 +14,13 @@ export function Panel() {
   const setSelection = useConfigurator((s) => s.setSelection);
   const cameraPreset = useConfigurator((s) => s.cameraPreset);
   const setCameraPreset = useConfigurator((s) => s.setCameraPreset);
+  const lightMode = useConfigurator((s) => s.lightMode);
+  const setLightMode = useConfigurator((s) => s.setLightMode);
+
+  // All finish sections start open; user can collapse to reduce scrolling.
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const toggle = (id: string) =>
+    setCollapsed((c) => ({ ...c, [id]: !c[id] }));
 
   return (
     <aside className="panel">
@@ -32,32 +40,69 @@ export function Panel() {
         </div>
       </section>
 
-      {FINISH_SLOTS.map((slot) => (
-        <section key={slot.id} className="panel-section">
-          <h2 className="panel-heading">{slot.label}</h2>
-          <div className="swatches">
-            {slot.options.map((opt) => {
-              const active = selections[slot.id] === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  className={`swatch${active ? " is-active" : ""}`}
-                  onClick={() => setSelection(slot.id, opt.id)}
-                  title={opt.label}
-                  aria-pressed={active}
-                >
-                  <span
-                    className="swatch-chip"
-                    style={{ backgroundColor: opt.swatch }}
-                  />
-                  <span className="swatch-label">{opt.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      ))}
+      <section className="panel-section">
+        <h2 className="panel-heading">Lighting</h2>
+        <div className="light-toggle">
+          <button
+            type="button"
+            className={`light-button${lightMode === "day" ? " is-active" : ""}`}
+            onClick={() => setLightMode("day")}
+          >
+            ☀ Day
+          </button>
+          <button
+            type="button"
+            className={`light-button${lightMode === "evening" ? " is-active" : ""}`}
+            onClick={() => setLightMode("evening")}
+          >
+            ☾ Evening
+          </button>
+        </div>
+      </section>
+
+      {FINISH_SLOTS.map((slot) => {
+        const isCollapsed = collapsed[slot.id];
+        const activeOpt = slot.options.find((o) => o.id === selections[slot.id]);
+        return (
+          <section key={slot.id} className="panel-section">
+            <button
+              type="button"
+              className="panel-heading panel-heading-toggle"
+              onClick={() => toggle(slot.id)}
+              aria-expanded={!isCollapsed}
+            >
+              <span>{slot.label}</span>
+              <span className="panel-heading-meta">
+                {activeOpt?.label}
+                <span className="chevron">{isCollapsed ? "▸" : "▾"}</span>
+              </span>
+            </button>
+            {!isCollapsed && (
+              <div className="swatches">
+                {slot.options.map((opt) => {
+                  const active = selections[slot.id] === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      className={`swatch${active ? " is-active" : ""}`}
+                      onClick={() => setSelection(slot.id, opt.id)}
+                      title={opt.label}
+                      aria-pressed={active}
+                    >
+                      <span
+                        className="swatch-chip"
+                        style={{ backgroundColor: opt.swatch }}
+                      />
+                      <span className="swatch-label">{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        );
+      })}
     </aside>
   );
 }

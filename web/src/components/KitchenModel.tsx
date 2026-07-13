@@ -15,10 +15,50 @@ export function KitchenModel() {
   const gltf = useGLTF(KITCHEN_GLB_URL);
   const [root, setRoot] = useState<THREE.Group | null>(null);
   const setPlaceholderMode = useConfigurator((s) => s.setPlaceholderMode);
+  const setPendantPositions = useConfigurator((s) => s.setPendantPositions);
+  const lightMode = useConfigurator((s) => s.lightMode);
 
   useEffect(() => {
     setPlaceholderMode(false);
   }, [setPlaceholderMode]);
+
+  // Locate island pendant shades so the evening lights can hang at them.
+  // Prefer the *_bulb child meshes; fall back to the APP_pendant_N nodes.
+  // If the model has no pendants yet, publish [] so Lighting uses its fallback.
+  useEffect(() => {
+    gltf.scene.updateWorldMatrix(true, true);
+    const found: [number, number, number][] = [];
+    const seen = new Set<string>();
+    const collect = (test: (name: string) => boolean) => {
+      gltf.scene.traverse((obj) => {
+        if (!test(obj.name) || seen.has(obj.name)) return;
+        seen.add(obj.name);
+        const p = new THREE.Vector3();
+        obj.getWorldPosition(p);
+        found.push([p.x, p.y, p.z]);
+      });
+    };
+    collect((n) => /^APP_pendant_\d+_bulb$/.test(n));
+    if (found.length === 0) collect((n) => /^APP_pendant_\d+$/.test(n));
+    setPendantPositions(found);
+  }, [gltf.scene, setPendantPositions]);
+
+  // MAT_bulb is emissive and never swapped — just make it glow harder at night.
+  useEffect(() => {
+    gltf.scene.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.material) return;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const m of mats) {
+        if (m.name !== "MAT_bulb") continue;
+        const em = m as THREE.MeshStandardMaterial;
+        if ("emissiveIntensity" in em) {
+          em.emissiveIntensity = lightMode === "evening" ? 3.0 : 1.0;
+          em.needsUpdate = true;
+        }
+      }
+    });
+  }, [gltf.scene, lightMode]);
 
   // One-time prep of the imported scene:
   //  - shadows: everything receives; the room SHELL (walls/ceiling/floor) does

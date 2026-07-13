@@ -119,6 +119,20 @@ def cylinder(name, cx, cy, cz, radius, length, axis, coll_name, material=None, s
     return _new_mesh_obj(name, bm, coll_name, material)
 
 
+def cone_shell(name, cx, cy, cz, r_bottom, r_top, depth, coll_name, material=None,
+               segments=28):
+    """Open-ended truncated-cone shell (no caps) used for the pendant shades.
+    radius at the -Z (bottom) end is r_bottom, at +Z (top) is r_top, so the wide
+    rim sits at the bottom and the bulb is visible from below."""
+    bm = bmesh.new()
+    bmesh.ops.create_cone(bm, cap_ends=False, cap_tris=False, segments=segments,
+                          radius1=r_bottom, radius2=r_top, depth=depth)
+    bmesh.ops.translate(bm, verts=bm.verts, vec=(cx, cy, cz))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.normal_update()
+    return _new_mesh_obj(name, bm, coll_name, material)
+
+
 def _rot_matrix(axis, angle):
     from mathutils import Matrix
     return Matrix.Rotation(angle, 3, axis)
@@ -236,56 +250,65 @@ def make_materials():
     MATS['MAT_cooktop_black'] = m
 
     # MAT_floor_tile -------------------------------------------------------
-    # Square tiles with a distinctly darker grout so the grid reads at camera
-    # distance, plus faint per-tile color variation and roughness variation.
+    # Large-format polished porcelain: ~0.6 m near-white square tiles, a thin
+    # light-grey grout (~4 mm), faint per-tile tone variation, and a glossy
+    # roughness (~0.12) that lifts slightly over the grout lines. Object coords
+    # are metres, so the tile pitch is truly ~0.6 m regardless of floor size.
     m = bpy.data.materials.new("MAT_floor_tile")
     m.use_nodes = True
     nt = m.node_tree
     b = _principled(m)
     tex_coord = nt.nodes.new('ShaderNodeTexCoord')
+    TILE = 0.6
+    mapping = nt.nodes.new('ShaderNodeMapping')
+    mapping.inputs['Scale'].default_value = (1.0 / TILE, 1.0 / TILE, 1.0 / TILE)
+    nt.links.new(tex_coord.outputs['Object'], mapping.inputs['Vector'])
     brick = nt.nodes.new('ShaderNodeTexBrick')
     brick.offset = 0.0            # aligned grid (square tiles, not brick-offset)
     brick.offset_frequency = 2
-    brick.inputs['Scale'].default_value = 1.6
+    brick.inputs['Scale'].default_value = 1.0
     if 'Mortar Size' in brick.inputs:
-        brick.inputs['Mortar Size'].default_value = 0.022
+        brick.inputs['Mortar Size'].default_value = 0.007  # ~4 mm / 600 mm tile
     if 'Mortar Smooth' in brick.inputs:
         brick.inputs['Mortar Smooth'].default_value = 0.1
     if 'Brick Width' in brick.inputs:
-        brick.inputs['Brick Width'].default_value = 0.5
+        brick.inputs['Brick Width'].default_value = 1.0
     if 'Row Height' in brick.inputs:
-        brick.inputs['Row Height'].default_value = 0.5
+        brick.inputs['Row Height'].default_value = 1.0
     if 'Bias' in brick.inputs:
         brick.inputs['Bias'].default_value = 0.0   # even mix of the two tile tones
-    # slightly warmer/lighter two tones -> visible tile-to-tile variation
-    brick.inputs['Color1'].default_value = (0.82, 0.80, 0.75, 1.0)
-    brick.inputs['Color2'].default_value = (0.70, 0.67, 0.61, 1.0)
-    brick.inputs['Mortar'].default_value = (0.12, 0.115, 0.11, 1.0)  # darker grout
-    nt.links.new(tex_coord.outputs['Generated'], brick.inputs['Vector'])
+    # near-white porcelain; the two tones give faint tile-to-tile variation
+    brick.inputs['Color1'].default_value = (0.90, 0.90, 0.91, 1.0)
+    brick.inputs['Color2'].default_value = (0.85, 0.85, 0.87, 1.0)
+    brick.inputs['Mortar'].default_value = (0.72, 0.72, 0.73, 1.0)  # light-grey grout
+    nt.links.new(mapping.outputs['Vector'], brick.inputs['Vector'])
 
-    # faint large-scale mottling across the floor
+    # very faint large-scale mottling (subtle on white porcelain)
     mottle = nt.nodes.new('ShaderNodeTexNoise')
-    mottle.inputs['Scale'].default_value = 4.0
-    mottle.inputs['Detail'].default_value = 3.0
-    nt.links.new(tex_coord.outputs['Generated'], mottle.inputs['Vector'])
+    mottle.inputs['Scale'].default_value = 3.0
+    mottle.inputs['Detail'].default_value = 2.0
+    nt.links.new(tex_coord.outputs['Object'], mottle.inputs['Vector'])
     mott_mix = nt.nodes.new('ShaderNodeMixRGB')
     mott_mix.blend_type = 'OVERLAY'
-    mott_mix.inputs['Fac'].default_value = 0.08
+    mott_mix.inputs['Fac'].default_value = 0.04
     nt.links.new(brick.outputs['Color'], mott_mix.inputs['Color1'])
     nt.links.new(mottle.outputs['Color'], mott_mix.inputs['Color2'])
     nt.links.new(mott_mix.outputs['Color'], b.inputs['Base Color'])
 
-    # roughness ~0.35 with slight variation (grout rougher than tile face)
+    # glossy tile face (~0.12) with slightly rougher grout lines
+    _set(b, 'Metallic', 0.0)
+    if 'Specular IOR Level' in b.inputs:
+        b.inputs['Specular IOR Level'].default_value = 0.6
     rough_ramp = nt.nodes.new('ShaderNodeValToRGB')
     rough_ramp.color_ramp.elements[0].position = 0.0
-    rough_ramp.color_ramp.elements[0].color = (0.30, 0.30, 0.30, 1.0)  # tile face
+    rough_ramp.color_ramp.elements[0].color = (0.12, 0.12, 0.12, 1.0)  # polished tile
     rough_ramp.color_ramp.elements[1].position = 1.0
-    rough_ramp.color_ramp.elements[1].color = (0.60, 0.60, 0.60, 1.0)  # grout
+    rough_ramp.color_ramp.elements[1].color = (0.35, 0.35, 0.35, 1.0)  # grout
     nt.links.new(brick.outputs['Fac'], rough_ramp.inputs['Fac'])
     nt.links.new(rough_ramp.outputs['Color'], b.inputs['Roughness'])
 
     bump = nt.nodes.new('ShaderNodeBump')
-    bump.inputs['Strength'].default_value = 0.30
+    bump.inputs['Strength'].default_value = 0.12   # shallow grout grooves
     nt.links.new(brick.outputs['Fac'], bump.inputs['Height'])
     nt.links.new(bump.outputs['Normal'], b.inputs['Normal'])
     MATS['MAT_floor_tile'] = m
@@ -401,6 +424,55 @@ def make_materials():
     _set(b, 'Transmission Weight', 1.0)
     _set(b, 'IOR', 1.45)
     MATS['MAT_glass'] = m
+
+    # MAT_backsplash (9th) -------------------------------------------------
+    # Polished stone splash: the granite procedural recipe, lifted lighter and
+    # glossier (roughness ~0.15) so it reads as a bright polished slab. Baked
+    # like the other stone materials (joint-UV accumulate bake in bake_export).
+    m = bpy.data.materials.new("MAT_backsplash")
+    m.use_nodes = True
+    nt = m.node_tree
+    b = _principled(m)
+    _set(b, 'Roughness', 0.15)
+    _set(b, 'Metallic', 0.0)
+    if 'Specular IOR Level' in b.inputs:
+        b.inputs['Specular IOR Level'].default_value = 0.7
+    tex_coord = nt.nodes.new('ShaderNodeTexCoord')
+    noise = nt.nodes.new('ShaderNodeTexNoise')
+    noise.inputs['Scale'].default_value = 26.0
+    noise.inputs['Detail'].default_value = 12.0
+    if 'Roughness' in noise.inputs:
+        noise.inputs['Roughness'].default_value = 0.7
+    ramp = nt.nodes.new('ShaderNodeValToRGB')
+    e0 = ramp.color_ramp.elements[0]
+    e0.position = 0.25
+    e0.color = (0.58, 0.58, 0.60, 1.0)   # light polished-stone base
+    e1 = ramp.color_ramp.elements[1]
+    e1.position = 0.65
+    e1.color = (0.78, 0.78, 0.79, 1.0)
+    emid = ramp.color_ramp.elements.new(0.85)
+    emid.color = (0.92, 0.92, 0.90, 1.0)  # occasional bright flecks
+    nt.links.new(tex_coord.outputs['Object'], noise.inputs['Vector'])
+    nt.links.new(noise.outputs['Fac'], ramp.inputs['Fac'])
+    nt.links.new(ramp.outputs['Color'], b.inputs['Base Color'])
+    bump = nt.nodes.new('ShaderNodeBump')
+    bump.inputs['Strength'].default_value = 0.03
+    nt.links.new(noise.outputs['Fac'], bump.inputs['Height'])
+    nt.links.new(bump.outputs['Normal'], b.inputs['Normal'])
+    MATS['MAT_backsplash'] = m
+
+    # MAT_bulb (10th) ------------------------------------------------------
+    # Warm emissive pendant bulb. Exports as an emissive glTF material (Blender
+    # writes emissiveFactor/strength from the Principled emission). Not baked.
+    m = bpy.data.materials.new("MAT_bulb")
+    m.use_nodes = True
+    b = _principled(m)
+    _set(b, 'Base Color', (0.05, 0.04, 0.03, 1.0))
+    if 'Emission Color' in b.inputs:
+        b.inputs['Emission Color'].default_value = (1.0, 0.78, 0.48, 1.0)
+    if 'Emission Strength' in b.inputs:
+        b.inputs['Emission Strength'].default_value = 4.0
+    MATS['MAT_bulb'] = m
 
 
 # ----------------------------------------------------------------------------
@@ -904,6 +976,81 @@ def build_sink_faucet():
 
 
 # ----------------------------------------------------------------------------
+# 8b. BACKSPLASH  (MAT_backsplash)
+# ----------------------------------------------------------------------------
+
+BACKSPLASH_T = 0.012            # ~12 mm slab thickness (protrudes into room)
+BACKSPLASH_Z0 = CTR_TOP        # 0.91 (sits on the counter top)
+BACKSPLASH_Z1 = UPPER_Z0       # 1.50 (meets the uppers / hood underside)
+WIN_X0, WIN_X1 = -0.90, 0.30   # window opening in X (matches build_window)
+WIN_SILL = 1.10                # window sill Z (backsplash stops here under the window)
+
+def build_backsplash():
+    """Stone splash panels filling z in [0.91, 1.50] between counter and uppers.
+    Back wall panels hug the inner wall plane (y=YMAX) and protrude 12 mm into
+    the room; left-wall panel hugs x=XMIN. Panels route AROUND the window frame
+    (below the sill only across the opening) and fill the range gap under the
+    hood."""
+    sp = MATS['MAT_backsplash']
+    z0, z1 = BACKSPLASH_Z0, BACKSPLASH_Z1
+    # back wall band: y in [YMAX - t, YMAX]
+    yb0, yb1 = YMAX - BACKSPLASH_T, YMAX
+    rx0 = RANGE_CX - RANGE_W / 2   # 1.07
+    rx1 = RANGE_CX + RANGE_W / 2   # 1.83
+    # left of the window: corner -> window opening (full band)
+    box_bounds("FIX_backsplash_back_L", BACK_RUN_X0, WIN_X0, yb0, yb1, z0, z1, "Room", sp)
+    # across the window: below the sill only (clears the frame at z>=1.10)
+    box_bounds("FIX_backsplash_back_win", WIN_X0, WIN_X1, yb0, yb1, z0, WIN_SILL, "Room", sp)
+    # right of the window -> range gap (full band)
+    box_bounds("FIX_backsplash_back_R", WIN_X1, rx0, yb0, yb1, z0, z1, "Room", sp)
+    # behind the range gap, under the hood (full band, no counter here)
+    box_bounds("FIX_backsplash_range", rx0, rx1, yb0, yb1, z0, z1, "Room", sp)
+    # remaining wall right of the range gap to the end of the back run
+    box_bounds("FIX_backsplash_back_RR", rx1, BACK_RUN_X1, yb0, yb1, z0, z1, "Room", sp)
+    # left wall band along CTR_left's extent: x in [XMIN, XMIN + t]
+    xl0, xl1 = XMIN, XMIN + BACKSPLASH_T
+    ly0 = LEFT_RUN_Y0                       # -0.70
+    ly1 = BACK_FRONT_Y - 0.02              # 1.48 (matches CTR_left back edge)
+    box_bounds("FIX_backsplash_left", xl0, xl1, ly0, ly1, z0, z1, "Room", sp)
+
+
+# ----------------------------------------------------------------------------
+# 8c. PENDANT LIGHTS over the island
+# ----------------------------------------------------------------------------
+
+def build_pendants():
+    """Three pendants evenly spaced along the island long (X) axis at y=-0.55:
+    a thin cord from the ceiling, a matte-black open cone shade, a warm emissive
+    bulb disk inside, plus a warm Cycles point light (excluded from glTF)."""
+    black = MATS['MAT_cooktop_black']
+    bulb = MATS['MAT_bulb']
+    cy = -0.55
+    cord_top = WALL_H           # 2.70 ceiling
+    cord_bot = 2.05             # cord meets the shade top
+    shade_cz = 1.98             # shade centre (rim ~1.90, top ~2.06)
+    shade_depth = 0.16
+    r_bottom, r_top = 0.18, 0.055
+    for i, cx in enumerate([-0.05, 0.55, 1.15], start=1):
+        # cord (thin cylinder ceiling -> shade top)
+        cylinder(f"APP_pendant_{i}_cord", cx, cy, (cord_top + cord_bot) / 2,
+                 0.006, cord_top - cord_bot, 'Z', "Appliances", black)
+        # open cone shade
+        cone_shell(f"APP_pendant_{i}", cx, cy, shade_cz, r_bottom, r_top,
+                   shade_depth, "Appliances", black)
+        # warm emissive bulb disk inside the shade
+        cylinder(f"APP_pendant_{i}_bulb", cx, cy, shade_cz - 0.02, 0.05, 0.012,
+                 'Z', "Appliances", bulb)
+        # warm point light inside the shade (NOT exported to glTF)
+        lt = bpy.data.lights.new(f"LIGHT_pendant_{i}", type='POINT')
+        lt.energy = 20.0
+        lt.color = (1.0, 0.82, 0.55)
+        lt.shadow_soft_size = 0.05
+        ob = bpy.data.objects.new(f"LIGHT_pendant_{i}", lt)
+        ob.location = (cx, cy, shade_cz - 0.02)
+        link_to(ob, "Lighting")
+
+
+# ----------------------------------------------------------------------------
 # 9. ISLAND
 # ----------------------------------------------------------------------------
 
@@ -1098,6 +1245,8 @@ def build():
     build_base_runs()
     build_uppers()
     build_appliances()
+    build_backsplash()
+    build_pendants()
     build_island()
     build_lighting()
     build_camera()
