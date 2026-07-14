@@ -1,8 +1,41 @@
 import { useEffect, useState } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
-import { useConfigurator } from "../store/useConfigurator";
+import { useConfigurator, type PlanRect } from "../store/useConfigurator";
 import { useApplyFinishes } from "../three/useApplyFinishes";
+
+// Category matchers for the mini floor-plan: each maps a node-name prefix to
+// the plan-rect kind. Boxes are taken from the highest matching ancestor so a
+// group and its child meshes aren't double-counted.
+const PLAN_CATS: { re: RegExp; kind: PlanRect["kind"] }[] = [
+  { re: /^CAB_base/i, kind: "cabinet" },
+  { re: /^ISL_/i, kind: "island" },
+  { re: /^APP_fridge/i, kind: "fridge" },
+  { re: /^APP_range/i, kind: "range" },
+  { re: /^FIX_sink_basin/i, kind: "sink" },
+];
+
+/** Project the glb footprints onto XZ. Returns [] if nothing matched. */
+function derivePlanShapes(scene: THREE.Object3D): PlanRect[] {
+  scene.updateWorldMatrix(true, true);
+  const rects: PlanRect[] = [];
+  const box = new THREE.Box3();
+  scene.traverse((obj) => {
+    for (const cat of PLAN_CATS) {
+      if (!cat.re.test(obj.name)) continue;
+      // Skip if an ancestor of the same kind was already recorded.
+      if (obj.parent && cat.re.test(obj.parent.name)) return;
+      box.setFromObject(obj);
+      if (box.isEmpty()) return;
+      const w = box.max.x - box.min.x;
+      const d = box.max.z - box.min.z;
+      if (w < 0.05 || d < 0.05) return;
+      rects.push({ x: box.min.x, z: box.min.z, w, d, kind: cat.kind });
+      return;
+    }
+  });
+  return rects;
+}
 
 /** Path (relative to web/public) where the Blender export is expected. */
 export const KITCHEN_GLB_URL = "/kitchen.glb";
@@ -16,11 +49,29 @@ export function KitchenModel() {
   const [root, setRoot] = useState<THREE.Group | null>(null);
   const setPlaceholderMode = useConfigurator((s) => s.setPlaceholderMode);
   const setPendantPositions = useConfigurator((s) => s.setPendantPositions);
+  const setPlanShapes = useConfigurator((s) => s.setPlanShapes);
   const lightMode = useConfigurator((s) => s.lightMode);
+  const viewMode = useConfigurator((s) => s.viewMode);
 
   useEffect(() => {
     setPlaceholderMode(false);
   }, [setPlaceholderMode]);
+
+  // Publish plan footprints for the mini floor-plan (empty -> DOM fallback).
+  useEffect(() => {
+    setPlanShapes(derivePlanShapes(gltf.scene));
+  }, [gltf.scene, setPlanShapes]);
+
+  // In 2D plan view, hide the ceiling and pendant shades so they don't occlude
+  // the top-down plan. Restored on return to 3D.
+  useEffect(() => {
+    const plan = viewMode === "2d";
+    gltf.scene.traverse((obj) => {
+      if (obj.name === "ROOM_ceiling" || /^APP_pendant_/i.test(obj.name)) {
+        obj.visible = !plan;
+      }
+    });
+  }, [gltf.scene, viewMode]);
 
   // Locate island pendant shades so the evening lights can hang at them.
   // Prefer the *_bulb child meshes; fall back to the APP_pendant_N nodes.

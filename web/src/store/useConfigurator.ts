@@ -12,6 +12,16 @@ export type SlotId = FinishSlot["id"];
 export type Selections = Record<SlotId, string>;
 export type LightMode = "day" | "evening";
 export type CameraPresetId = "overview" | "sink" | "island" | "range";
+export type ViewMode = "2d" | "3d";
+
+/** A footprint rectangle in the XZ plane (world meters) for the mini floor-plan. */
+export type PlanRect = {
+  x: number;
+  z: number;
+  w: number;
+  d: number;
+  kind: "cabinet" | "island" | "fridge" | "range" | "sink";
+};
 
 export const defaultSelections: Selections = FINISH_SLOTS.reduce((acc, slot) => {
   acc[slot.id] = slot.options[0].id;
@@ -37,6 +47,13 @@ type ConfiguratorState = {
   cameraPreset: CameraPresetId;
   placeholderMode: boolean;
 
+  /** planner view: perspective 3D (default) or top-down 2D plan */
+  viewMode: ViewMode;
+  /** measure tool active (drop points, read distances) */
+  measureMode: boolean;
+  /** footprint rectangles derived from the glb for the mini floor-plan */
+  planShapes: PlanRect[];
+
   /** world-space positions of island pendant shades (empty -> fallback used) */
   pendantPositions: [number, number, number][];
 
@@ -53,6 +70,10 @@ type ConfiguratorState = {
   setLightMode: (mode: LightMode) => void;
   setCameraPreset: (preset: CameraPresetId) => void;
   setPlaceholderMode: (on: boolean) => void;
+  setViewMode: (mode: ViewMode) => void;
+  setMeasureMode: (on: boolean) => void;
+  toggleMeasureMode: () => void;
+  setPlanShapes: (shapes: PlanRect[]) => void;
   setPendantPositions: (positions: [number, number, number][]) => void;
 
   createProject: (name?: string) => void;
@@ -140,6 +161,9 @@ export const useConfigurator = create<ConfiguratorState>((set) => ({
   lightMode: init.lightMode,
   cameraPreset: "overview",
   placeholderMode: false,
+  viewMode: "3d",
+  measureMode: false,
+  planShapes: [],
   pendantPositions: [],
 
   projects: init.projects,
@@ -159,6 +183,10 @@ export const useConfigurator = create<ConfiguratorState>((set) => ({
 
   setCameraPreset: (preset) => set({ cameraPreset: preset }),
   setPlaceholderMode: (on) => set({ placeholderMode: on }),
+  setViewMode: (mode) => set({ viewMode: mode }),
+  setMeasureMode: (on) => set({ measureMode: on }),
+  toggleMeasureMode: () => set((state) => ({ measureMode: !state.measureMode })),
+  setPlanShapes: (shapes) => set({ planShapes: shapes }),
   setPendantPositions: (positions) => set({ pendantPositions: positions }),
 
   createProject: (name) =>

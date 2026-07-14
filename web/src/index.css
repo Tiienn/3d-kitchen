@@ -122,6 +122,149 @@ body {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 
+/* ---- Canvas view toolbar (top-left overlay) ---- */
+.view-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.seg {
+  display: inline-flex;
+  background: rgba(28, 30, 34, 0.82);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  overflow: hidden;
+  backdrop-filter: blur(6px);
+}
+
+.seg-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.seg-btn + .seg-btn {
+  border-left: 1px solid var(--panel-border);
+}
+
+.seg-btn:hover {
+  color: var(--text);
+}
+
+.seg-btn.is-active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tool-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: var(--text);
+  background: rgba(28, 30, 34, 0.82);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.tool-icon:hover {
+  background: rgba(51, 55, 63, 0.9);
+  border-color: var(--accent);
+}
+
+.tool-icon.is-active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ---- Mini floor-plan navigator (bottom-left overlay) ---- */
+.minimap {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  z-index: 6;
+  width: 170px;
+  background: rgba(28, 30, 34, 0.86);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 6px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.minimap.is-collapsed {
+  width: auto;
+}
+
+.minimap-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 4px;
+}
+
+.minimap-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-dim);
+}
+
+.minimap-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.minimap-toggle:hover {
+  color: var(--text);
+  background: #33373f;
+}
+
+.minimap-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  cursor: crosshair;
+}
+
+/* ---- Measure tool label (in-canvas Html) ---- */
+.measure-label {
+  padding: 3px 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1c1e22;
+  background: var(--accent);
+  border-radius: 6px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  user-select: none;
+}
+
 /* ---- Stage: canvas + panel ---- */
 .stage {
   flex: 1 1 auto;
@@ -565,6 +708,29 @@ body {
     z-index: 25;
   }
 
+  /* Toolbar stays top-left but compacts (smaller controls, still labelled 2D/3D). */
+  .view-toolbar {
+    top: 8px;
+    left: 8px;
+    gap: 6px;
+  }
+
+  .seg-btn {
+    padding: 6px 10px;
+  }
+
+  .tool-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Keep the minimap clear of the customize FAB. */
+  .minimap {
+    bottom: 12px;
+    left: 12px;
+    width: 150px;
+  }
+
   /* Floating, thumb-reachable customize trigger. */
   .customize-fab {
     display: inline-flex;
@@ -626,5 +792,12 @@ body {
 @media (max-width: 820px) {
   .sidebar-head .drawer-close {
     display: inline-flex;
+  }
+}
+
+/* Hide the minimap on very narrow screens (not enough room). */
+@media (max-width: 480px) {
+  .minimap {
+    display: none;
   }
 }

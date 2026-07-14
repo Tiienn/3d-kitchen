@@ -7,6 +7,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { CameraRig } from "./CameraRig";
 import { Lighting } from "./Lighting";
 import { WindowBackdrop } from "./WindowBackdrop";
+import { MeasureLayer } from "./MeasureLayer";
 import { useEffect } from "react";
 import { registerRenderer } from "../lib/snapshot";
 
@@ -51,6 +52,7 @@ export function KitchenScene() {
       </Suspense>
 
       <CameraRig />
+      <MeasureLayer />
       <CanvasCapture />
     </Canvas>
   );

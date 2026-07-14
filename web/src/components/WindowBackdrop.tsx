@@ -54,6 +54,7 @@ const DUSK_STOPS: Stops = [
 
 export function WindowBackdrop() {
   const lightMode = useConfigurator((s) => s.lightMode);
+  const viewMode = useConfigurator((s) => s.viewMode);
 
   const texture = useMemo(
     () => makeGradientTexture(lightMode === "evening" ? DUSK_STOPS : DAY_STOPS),
@@ -65,6 +66,8 @@ export function WindowBackdrop() {
       name="WINDOW_backdrop"
       position={[CENTER_X, CENTER_Y, BACKDROP_Z]}
       renderOrder={-1}
+      // Hidden in the top-down 2D plan (it would sit across the plan view).
+      visible={viewMode === "3d"}
     >
       <planeGeometry args={[WIDTH, HEIGHT]} />
       <meshBasicMaterial

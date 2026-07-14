@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { KitchenScene } from "./components/KitchenScene";
 import { Panel } from "./components/Panel";
 import { ProjectSidebar } from "./components/ProjectSidebar";
+import { ViewToolbar } from "./components/ViewToolbar";
+import { MiniMap } from "./components/MiniMap";
 import { useConfigurator } from "./store/useConfigurator";
 import { buildShareUrl } from "./lib/share";
 import { capturePng } from "./lib/snapshot";
@@ -105,6 +107,9 @@ export default function App() {
 
         <div className="canvas-wrap">
           <KitchenScene />
+          {/* Planner tools overlaid on the canvas (DOM; not in PNG snapshots). */}
+          <ViewToolbar />
+          <MiniMap />
         </div>
 
         <div className={`panel-drawer${panelOpen ? " is-open" : ""}`}>
