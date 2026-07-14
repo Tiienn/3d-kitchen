@@ -1007,10 +1007,14 @@ def build_backsplash():
     box_bounds("FIX_backsplash_range", rx0, rx1, yb0, yb1, z0, z1, "Room", sp)
     # remaining wall right of the range gap to the end of the back run
     box_bounds("FIX_backsplash_back_RR", rx1, BACK_RUN_X1, yb0, yb1, z0, z1, "Room", sp)
-    # left wall band along CTR_left's extent: x in [XMIN, XMIN + t]
+    # left wall band: x in [XMIN, XMIN + t]. Runs the FULL depth of the left run
+    # AND the corner counter section (CTR_back covers x in [-2.5,-1.9], y in
+    # [1.5,2.1]), so the band continues around the inside corner. It ends exactly
+    # at y = YMAX - t = 2.088, butting flush against the back-wall panel
+    # FIX_backsplash_back_L (which occupies y in [2.088, 2.10]) with no overlap.
     xl0, xl1 = XMIN, XMIN + BACKSPLASH_T
     ly0 = LEFT_RUN_Y0                       # -0.70
-    ly1 = BACK_FRONT_Y - 0.02              # 1.48 (matches CTR_left back edge)
+    ly1 = YMAX - BACKSPLASH_T               # 2.088 (butts back-wall panel, no z-fight)
     box_bounds("FIX_backsplash_left", xl0, xl1, ly0, ly1, z0, z1, "Room", sp)
 
 

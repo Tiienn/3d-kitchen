@@ -9,7 +9,7 @@ const CAMERA_PRESETS: { id: CameraPresetId; label: string }[] = [
   { id: "range", label: "Range" },
 ];
 
-export function Panel() {
+export function Panel({ onCloseMobile }: { onCloseMobile?: () => void }) {
   const selections = useConfigurator((s) => s.selections);
   const setSelection = useConfigurator((s) => s.setSelection);
   const cameraPreset = useConfigurator((s) => s.cameraPreset);
@@ -24,6 +24,20 @@ export function Panel() {
 
   return (
     <aside className="panel">
+      {/* Mobile-only drawer header with a close affordance. */}
+      <div className="drawer-head">
+        <span className="drawer-title">Customize</span>
+        <button
+          type="button"
+          className="drawer-close"
+          title="Close"
+          aria-label="Close customize panel"
+          onClick={onCloseMobile}
+        >
+          ✕
+        </button>
+      </div>
+
       <section className="panel-section">
         <h2 className="panel-heading">Views</h2>
         <div className="view-buttons">

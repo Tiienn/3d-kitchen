@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { KitchenScene } from "./components/KitchenScene";
 import { Panel } from "./components/Panel";
 import { ProjectSidebar } from "./components/ProjectSidebar";
@@ -20,11 +20,18 @@ export default function App() {
   const selections = useConfigurator((s) => s.selections);
   const lightMode = useConfigurator((s) => s.lightMode);
   const sharedMode = useConfigurator((s) => s.sharedMode);
-  const saveSharedAsProject = useConfigurator((s) => s.saveSharedAsProject);
   const showToast = useConfigurator((s) => s.showToast);
   const clearToast = useConfigurator((s) => s.clearToast);
   const toast = useConfigurator((s) => s.toast);
   const name = useActiveName();
+
+  // Mobile drawer state (ignored by CSS on desktop, where both are in-flow).
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const closeDrawers = () => {
+    setSidebarOpen(false);
+    setPanelOpen(false);
+  };
 
   useEffect(() => {
     if (!toast) return;
@@ -52,15 +59,30 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
+        {/* Mobile-only hamburger to open the projects drawer (owner mode only). */}
+        {!sharedMode && (
+          <button
+            type="button"
+            className="header-hamburger"
+            title="Projects"
+            aria-label="Open projects"
+            onClick={() => setSidebarOpen(true)}
+          >
+            ☰
+          </button>
+        )}
         <h1 className="header-title">Kitchen Studio — Configurator</h1>
         <span className="header-project">{name}</span>
         {placeholderMode && (
           <span className="header-note">Demo geometry — Blender model pending</span>
         )}
         <div className="header-actions">
-          <button type="button" className="toolbar-button" onClick={onShare}>
-            Share link
-          </button>
+          {/* Viewers already have the link; hide "Share link" in shared mode. */}
+          {!sharedMode && (
+            <button type="button" className="toolbar-button" onClick={onShare}>
+              Share link
+            </button>
+          )}
           <button type="button" className="toolbar-button" onClick={onSnapshot}>
             Save PNG
           </button>
@@ -69,23 +91,41 @@ export default function App() {
 
       {sharedMode && (
         <div className="share-banner">
-          <span>Viewing shared design</span>
-          <button
-            type="button"
-            className="mini-button"
-            onClick={saveSharedAsProject}
-          >
-            Save as project
-          </button>
+          <span>Viewing shared design{name ? ` — ${name}` : ""}</span>
         </div>
       )}
 
       <main className="stage">
-        <ProjectSidebar />
+        {/* Project management is owner-only; viewers of a share link never see it. */}
+        {!sharedMode && (
+          <div className={`sidebar-drawer${sidebarOpen ? " is-open" : ""}`}>
+            <ProjectSidebar onCloseMobile={() => setSidebarOpen(false)} />
+          </div>
+        )}
+
         <div className="canvas-wrap">
           <KitchenScene />
         </div>
-        <Panel />
+
+        <div className={`panel-drawer${panelOpen ? " is-open" : ""}`}>
+          <Panel onCloseMobile={() => setPanelOpen(false)} />
+        </div>
+
+        {/* Dimmed scrim: closes any open drawer on tap. Mobile-only via CSS. */}
+        {(sidebarOpen || panelOpen) && (
+          <div className="scrim" onClick={closeDrawers} aria-hidden="true" />
+        )}
+
+        {/* Floating thumb-reachable trigger for the customize drawer (mobile-only). */}
+        {!panelOpen && (
+          <button
+            type="button"
+            className="customize-fab"
+            onClick={() => setPanelOpen(true)}
+          >
+            Customize
+          </button>
+        )}
       </main>
 
       {toast && <div className="toast">{toast}</div>}

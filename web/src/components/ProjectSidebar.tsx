@@ -6,7 +6,11 @@ import { useConfigurator } from "../store/useConfigurator";
  * delete. The active project is highlighted and auto-saved on every change
  * (handled in the store). Collapsible for narrow widths.
  */
-export function ProjectSidebar() {
+export function ProjectSidebar({
+  onCloseMobile,
+}: {
+  onCloseMobile?: () => void;
+}) {
   const projects = useConfigurator((s) => s.projects);
   const activeProjectId = useConfigurator((s) => s.activeProjectId);
   const createProject = useConfigurator((s) => s.createProject);
@@ -51,6 +55,7 @@ export function ProjectSidebar() {
     <aside className="sidebar">
       <div className="sidebar-head">
         <h2 className="panel-heading">Projects</h2>
+        {/* Desktop: collapse the rail. */}
         <button
           type="button"
           className="sidebar-toggle"
@@ -58,6 +63,16 @@ export function ProjectSidebar() {
           onClick={() => setCollapsed(true)}
         >
           ‹
+        </button>
+        {/* Mobile: close the drawer. */}
+        <button
+          type="button"
+          className="drawer-close"
+          title="Close"
+          aria-label="Close projects panel"
+          onClick={onCloseMobile}
+        >
+          ✕
         </button>
       </div>
 
