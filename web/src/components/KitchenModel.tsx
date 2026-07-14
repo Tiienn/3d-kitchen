@@ -86,6 +86,11 @@ export function KitchenModel() {
         if (isBackShell && mat.side !== THREE.BackSide) {
           mat = mat.clone();
           mat.side = THREE.BackSide;
+          // Backsplash panels and cabinet backs sit exactly on the wall planes;
+          // nudge the shells back in depth so coplanar geometry can't z-fight.
+          mat.polygonOffset = true;
+          mat.polygonOffsetFactor = 2;
+          mat.polygonOffsetUnits = 2;
           mat.needsUpdate = true;
         }
         if (mat.name === "MAT_glass" && !mat.transparent) {
